@@ -91,3 +91,4 @@ emac.o
 dns.o
 dhcp.o
 clock.o
+spi.crf
