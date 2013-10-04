@@ -268,7 +268,8 @@ void enc28j60_if_input(struct netif *netif)
  *         ERR_MEM if private data couldn't be allocated
  *         any other err_t on error
  */
-err_t enc28j60_if_init(struct netif *netif)
+err_t
+enc28j60_if_init(struct netif *netif)
 {
   struct ethernetif *ethernetif;
 	const u8_t *mac_addr;
@@ -277,7 +278,7 @@ err_t enc28j60_if_init(struct netif *netif)
     
   ethernetif = mem_malloc(sizeof(struct ethernetif));
   if (ethernetif == NULL) {
-    LWIP_DEBUGF(NETIF_DEBUG, ("ethernetif_init: out of memory\n"));
+    LWIP_DEBUGF(NETIF_DEBUG, ("enc28j60_if_init: out of memory\n"));
     return ERR_MEM;
   }
 

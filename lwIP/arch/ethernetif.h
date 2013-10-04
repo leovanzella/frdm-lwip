@@ -11,7 +11,7 @@
 #define ETHERNETIF_NO_PACKET      0
 #define ETHERNETIF_PACKET_READY   1
 
-extern err_t   ethernetif_init(struct netif *netif);
-extern void    ethernetif_handlepackets(struct netif *netif);
+extern err_t   enc28j60_if_init (struct netif *netif);
+extern void    enc28j60_if_input(struct netif *netif);
 
 #endif /* __LWIP_ARCH_ETHERNETIF_H__ */

@@ -78,7 +78,7 @@ static void lwip_init(void)
 	IP4_ADDR(&my_netmask_data, 255, 255, 255, 0);
 	IP4_ADDR(&my_gw_data, 192, 168, 1, 1);
 
-  netif_add(netif_eth0, &my_ipaddr_data, &my_netmask_data, &my_gw_data, NULL, ethernetif_init, ip_input);
+  netif_add(netif_eth0, &my_ipaddr_data, &my_netmask_data, &my_gw_data, NULL, enc28j60_if_init, ip_input);
  
 	netif_set_default(netif_eth0);
 
@@ -212,7 +212,7 @@ int main (void) {
 
   while(1) 
 	{
-		ethernetif_handlepackets(netif_eth0);
+		enc28j60_if_input(netif_eth0);
         tcp_tmr();
   }
 }
