@@ -37,6 +37,7 @@
  */
 
 #include "lwip/opt.h"
+
 #include "lwip/def.h"
 #include "lwip/mem.h"
 #include "lwip/pbuf.h"
@@ -72,7 +73,7 @@ static err_t ethernetif_output(struct netif *netif, struct pbuf *p,
 
 /**
  * In this function, the hardware should be initialized.
- * Called from ethernetif_init().
+ * Called from enc28j60_if_init().
  *
  * @param netif the already initialized lwip network interface structure
  *        for this ethernetif
@@ -124,46 +125,26 @@ low_level_output(struct netif *netif, struct pbuf *p)
 {
   struct ethernetif *ethernetif = netif->state;
   struct pbuf *q;
-	unsigned int       len;
-	unsigned int       error;
-
-	// Initiate transfer();
-	RequestSend();
 
 #if ETH_PAD_SIZE
   pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
 #endif
 
-	len   = 0;
-	error = 0;
+	enc28j60BeginPacketSend(p->tot_len);
 
   for(q = p; q != NULL; q = q->next) {
     /* Send the data from the pbuf to the interface, one pbuf at a
        time. The size of the data in each pbuf is kept in the ->len
        variable. */
-
-		if (((unsigned int)len + q->len) >= (unsigned int) ETH_FRAG_SIZE)
-		{
-			error = 1;
-			break;
-		}
-
-		CopyToFrame_EMAC(q->payload, q->len);
-		len = len + q->len;
+		enc28j60PacketSend(q->payload, q->len);
   }
-
-	// Sent packet
-	if (!error)
-		DoSend_EMAC(len);
+	enc28j60EndPacketSend();
 
 #if ETH_PAD_SIZE
   pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
 #endif
   
-#if LINK_STATS
-	if (!error)
-		lwip_stats.link.xmit++;
-#endif /* LINK_STATS */      
+  LINK_STATS_INC(link.xmit);
 
   return ERR_OK;
 }
@@ -182,15 +163,11 @@ low_level_input(struct netif *netif)
   struct ethernetif *ethernetif = netif->state;
   struct pbuf *p, *q;
   u16_t len;
-	unsigned int      cpyix;
-	unsigned int      cpylen;
 
   /* Obtain the size of the packet and put it into the "len"
      variable. */
-	if (CheckFrameReceived() == 0)
-		return NULL;
-
-	len = StartReadFrame();
+  len = enc28j60BeginPacketReceive();
+	if(!len) return NULL;
 
 #if ETH_PAD_SIZE
   len += ETH_PAD_SIZE; /* allow room for Ethernet padding */
@@ -211,18 +188,12 @@ low_level_input(struct netif *netif)
       /* Read enough bytes to fill this pbuf in the chain. The
        * available data in the pbuf is given by the q->len
        * variable. */
-
-			if (q->len >= len)
-				cpylen = len;
-			else
-				cpylen = q->len;
-
-			CopyFromFrame_EMAC(q->payload, cpylen);
-
-			len   = len - cpylen;
-			cpyix = cpyix + cpylen;
+      //read data into(q->payload, q->len);
+			enc28j60PacketReceive(q->payload, q->len);
     }
-		EndReadFrame();
+			
+    //acknowledge that packet has been read();
+		enc28j60EndPacketReceive();
 
 #if ETH_PAD_SIZE
     pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
@@ -230,35 +201,13 @@ low_level_input(struct netif *netif)
 
     LINK_STATS_INC(link.recv);
   } else {
-		// Drop packet because no free pbuf available
-		EndReadFrame();
-
-#if LINK_STATS
-    lwip_stats.link.memerr++;
-    lwip_stats.link.drop++;
-#endif /* LINK_STATS */      
+    //drop packet();
+		enc28j60EndPacketReceive();
+    LINK_STATS_INC(link.memerr);
+    LINK_STATS_INC(link.drop);
   }
 
   return p;  
-}
-
-/*
- * ethernetif_output():
- *
- * This function is called by the TCP/IP stack when an IP packet
- * should be sent. It calls the function called low_level_output() to
- * do the actual transmission of the packet.
- *
- */
-
-static err_t
-ethernetif_output(struct netif *netif, struct pbuf *p,
-      struct ip_addr *ipaddr)
-{
-  
- /* resolve hardware address, then send (or queue) packet */
-  return etharp_output(netif, p, ipaddr);
- 
 }
 
 /**
@@ -270,10 +219,10 @@ ethernetif_output(struct netif *netif, struct pbuf *p,
  *
  * @param netif the lwip network interface structure for this ethernetif
  */
-void ethernetif_handlepackets(struct netif *netif)
+void enc28j60_if_input(struct netif *netif)
 {
   struct ethernetif *ethernetif;
-  struct eth_hdr*    ethhdr;
+  struct eth_hdr *ethhdr;
   struct pbuf *p;
 
   ethernetif = netif->state;
@@ -286,18 +235,21 @@ void ethernetif_handlepackets(struct netif *netif)
   ethhdr = p->payload;
 
   switch (htons(ethhdr->type)) {
-  /* IP or ARP packet? */
+  /* IP packet? */
   case ETHTYPE_IP:
-		/* CSi disabled ARP table update on ingress IP packets.
-			This seems to work but needs thorough testing. */
+#if 0
+/* CSi disabled ARP table update on ingress IP packets.
+   This seems to work but needs thorough testing. */
     /* update ARP table */
-    //etharp_ip_input(netif, p);
-		ethernet_input(p, netif);
+    etharp_ip_input(netif, p);
+#endif
     /* skip Ethernet header */
-    pbuf_header(p, -((s16_t) sizeof(struct eth_hdr)));
+    pbuf_header(p, -(s16_t)sizeof(struct eth_hdr));
+    LWIP_DEBUGF(NETIF_DEBUG, ("enc28j60_if_input: passing packet up to IP\n"));
     /* pass to network layer */
     netif->input(p, netif);
     break;
+  /* ARP packet? */
   case ETHTYPE_ARP:
 #if PPPOE_SUPPORT
   /* PPPoE packet? */
@@ -308,8 +260,9 @@ void ethernetif_handlepackets(struct netif *netif)
 //      etharp_arp_input(netif, (struct eth_addr *)&(netif->hwaddr[0]), p);
 		ethernet_input(p, netif);
     break;
-
+  /* unsupported Ethernet packet type */
   default:
+    /* free pbuf */
     pbuf_free(p);
     p = NULL;
     break;
@@ -329,15 +282,16 @@ void ethernetif_handlepackets(struct netif *netif)
  *         any other err_t on error
  */
 err_t
-ethernetif_init(struct netif *netif)
+enc28j60_if_init(struct netif *netif)
 {
   struct ethernetif *ethernetif;
+	const u8_t *mac_addr;
 
   LWIP_ASSERT("netif != NULL", (netif != NULL));
     
   ethernetif = mem_malloc(sizeof(struct ethernetif));
   if (ethernetif == NULL) {
-    LWIP_DEBUGF(NETIF_DEBUG, ("ethernetif_init: out of memory\n"));
+    LWIP_DEBUGF(NETIF_DEBUG, ("enc28j60_if_init: out of memory\n"));
     return ERR_MEM;
   }
 
@@ -351,6 +305,7 @@ ethernetif_init(struct netif *netif)
    * The last argument should be replaced with your link speed, in units
    * of bits per second.
    */
+  NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 10000000); //10Mbit
 
   netif->state = ethernetif;
   netif->name[0] = IFNAME0;
@@ -370,3 +325,8 @@ ethernetif_init(struct netif *netif)
   return ERR_OK;
 }
 
+
+void enc28j60_periodic(struct netif *netif)
+{
+	enc28j60_if_input(netif);
+}
