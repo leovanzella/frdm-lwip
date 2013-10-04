@@ -14,6 +14,8 @@
 #include <MKL25Z4.H>
 #include <string.h>
 
+#include "spi.h"
+
 volatile uint32_t msTicks;                            /* counts 1ms timeTicks */
 /*----------------------------------------------------------------------------
   SysTick_Handler
@@ -205,6 +207,7 @@ int main (void) {
   SystemCoreClockUpdate();                      /* Get Core Clock Frequency */
   SysTick_Config(SystemCoreClock/1000);         /* Generate interrupt each 1 ms    */
 
+	spi_init();
 	lwip_init();
 	http_init();
 
