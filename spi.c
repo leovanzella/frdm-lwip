@@ -1,5 +1,10 @@
 #include "spi.h"
 
+/*  Setup the spi for 8 bit data, high steady state clock,
+    second edge capture, with a 8MHz clock rate 					
+		spi.format(8,0) POL=0 PHA = 0;
+    spi.frequency(8000000);
+		*/
 void spi_init(void)  
 {  
 	SIM->SCGC5 |= SIM_SCGC5_PORTD_MASK;     					  /* Turn on clock to D module */ 
@@ -18,7 +23,7 @@ void spi_init(void)
 	SPI0->C1 = SPI_C1_SPE_MASK;    										/* Enable SPI0 */
 }  
   
-void spi_send(char spiMsg)  
+char spi_send(char spiMsg)  
 {  
 	while(!(SPI_S_SPTEF_MASK & SPI0->S))
 	{      
@@ -28,6 +33,7 @@ void spi_send(char spiMsg)
 		}
 	}  
 	SPI0->D = spiMsg;     /* Write char to SPI */
+	return(spiMsg);
 }
 
 void spi_recv(char spiMsg)  
