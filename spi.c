@@ -20,7 +20,7 @@ void spi_init(void)
 
 	SPI0->BR = (SPI_BR_SPPR(0x02) | SPI_BR_SPR(0x08)); /* Set baud rate prescale divisor to 3 & set baud rate divisor to 64 for baud rate of 15625 hz */
 
-	SPI0->C1 = SPI_C1_SPE_MASK;    										/* Enable SPI0 */
+	SPI0->C1 |= SPI_C1_SPE_MASK;    										/* Enable SPI0 */
 }  
   
 char spi_send(char spiMsg)  
