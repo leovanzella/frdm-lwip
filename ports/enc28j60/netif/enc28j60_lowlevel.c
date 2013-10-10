@@ -39,7 +39,6 @@
 u8_t Enc28j60Bank;
 u16_t NextPacketPtr;
 
-static uint8_t Enc28j60Bank;
 static int gNextPacketPtr;
 uint8_t macaddr[] = {0x00, 0xFF, 0x7A, 0xA5, 0x06, 0xDD}; // fake mac, please change it
 
@@ -186,10 +185,10 @@ void enc28j60ReadBuffer(u16_t len, u8_t* data)
 
 void enc28j60WriteBuffer(u16_t len, u8_t* data)
 {
-        // assert CS
+    // assert CS
 		enableChip();
 
-        // issue write command
+    // issue write command
 		spi_send(ENC28J60_WRITE_BUF_MEM);
 		while (len--)
 			// write data
@@ -278,20 +277,8 @@ void enc28j60PhyWrite(u8_t address, u16_t data)
 
 void enc28j60SoftwareReset(void)
 {
-
 	// perform system reset
 	enc28j60WriteOp(ENC28J60_SOFT_RESET, 0, ENC28J60_SOFT_RESET);
-  
-  //#ifdef ENC28J60_ERRATA_B7
-  //_delay_ms(1); //wait for 1 ms
-  //#else
-	// check CLKRDY bit to see if reset is complete
-	//int i;
-	//for(i=0;i<0x10;i++){
-	//	for(j=0;j<0xff;j++) ;
-	//}
-	//while(!(enc28j60Read(ESTAT) & ESTAT_CLKRDY));
-  //#endif //ENC28J60_ERRATA_B7
 }
 
 
