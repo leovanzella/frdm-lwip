@@ -39,6 +39,109 @@
 u8_t Enc28j60Bank;
 u16_t NextPacketPtr;
 
+static uint8_t Enc28j60Bank;
+static int gNextPacketPtr;
+uint8_t macaddr[] = {0x00, 0xFF, 0x7A, 0xA5, 0x06, 0xDD}; // fake mac, please change it
+
+void wait(char mseconds)
+{
+	int i;
+	for(i = mseconds*10000000; i >=0; i--)
+	{
+
+	}
+}
+
+void enableChip(void) 
+{
+    //cs = 0;
+		FPTD->PCOR = 1;
+}
+
+void disableChip(void) 
+{
+    //cs = 1;
+		FPTD->PSOR = 1;
+}
+
+static uint8_t readRegByte (uint8_t address) 
+{
+    enc28j60SetBank(address);
+    return enc28j60ReadOp(ENC28J60_READ_CTRL_REG, address);
+}
+
+static uint16_t readReg(uint8_t address) 
+{
+    return readRegByte(address) + (readRegByte(address+1) << 8);
+}
+ 
+static void writeRegByte (uint8_t address, uint8_t data) 
+{
+    enc28j60SetBank(address);
+    enc28j60WriteOp(ENC28J60_WRITE_CTRL_REG, address, data);
+}
+ 
+static void writeReg(uint8_t address, uint16_t data) 
+{
+    writeRegByte(address, data);
+    writeRegByte(address + 1, data >> 8);
+}
+
+void enableBroadcast () 
+{
+    writeRegByte(ERXFCON, ERXFCON_UCEN|ERXFCON_CRCEN|ERXFCON_PMEN|ERXFCON_BCEN);
+}
+ 
+void disableBroadcast () 
+{
+    writeRegByte(ERXFCON, ERXFCON_UCEN|ERXFCON_CRCEN|ERXFCON_PMEN);
+}
+ 
+void disableMulticast () 
+{ // disable multicast filter , enable multicast reception
+    writeRegByte(ERXFCON, ERXFCON_CRCEN);
+}
+
+static uint16_t readPhyByte(uint8_t address) 
+{
+    writeRegByte(MIREGADR, address);
+    writeRegByte(MICMD, MICMD_MIIRD);
+    while (readRegByte(MISTAT) & MISTAT_BUSY);
+    writeRegByte(MICMD, 0x00);
+    return readRegByte(MIRD+1);
+}
+
+static void writePhy(uint8_t address, uint16_t data) 
+{
+    writeRegByte(MIREGADR, address);
+    writeReg(MIWR, data);
+    while (readRegByte(MISTAT) & MISTAT_BUSY)
+        ;
+}
+ 
+uint8_t isLinkUp(void) 
+{
+    return (readPhyByte(PHSTAT2) >> 2) & 1;
+}
+
+// Contributed by Alex M. Based on code from: http://blog.derouineau.fr
+//                  /2011/07/putting-enc28j60-ethernet-controler-in-sleep-mode/
+void powerDown() 
+{
+    enc28j60WriteOp(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_RXEN);
+    while(readRegByte(ESTAT) & ESTAT_RXBUSY);
+    while(readRegByte(ECON1) & ECON1_TXRTS);
+    enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, ECON2, ECON2_VRPS);
+    enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, ECON2, ECON2_PWRSV);
+}
+ 
+void powerUp() 
+{
+    enc28j60WriteOp(ENC28J60_BIT_FIELD_CLR, ECON2, ECON2_PWRSV);
+    while(!readRegByte(ESTAT) & ESTAT_CLKRDY);
+    enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_RXEN);
+}
+
 u8_t enc28j60ReadOp(u8_t op, u8_t address)
 {
 	u8_t data;
@@ -195,7 +298,48 @@ void enc28j60SoftwareReset(void)
 void enc28j60Init(uint8_t *eth_addr,u8_t DuplexState)
 {
 	u8_t i,j;
-	initialize();
+	uint8_t rev;
+	uint8_t link;
+	enc28j60WriteOp(ENC28J60_SOFT_RESET, 0, ENC28J60_SOFT_RESET);
+	wait(2);
+
+	while(!enc28j60ReadOp(ENC28J60_READ_CTRL_REG, ESTAT) & ESTAT_CLKRDY);
+
+	gNextPacketPtr = RXSTART_INIT;
+	writeReg(ERXST, RXSTART_INIT);
+	writeReg(ERXRDPT, RXSTART_INIT);
+	writeReg(ERXND, RXSTOP_INIT);
+	writeReg(ETXST, TXSTART_INIT);
+	writeReg(ETXND, TXSTOP_INIT);
+	enableBroadcast(); // change to add ERXFCON_BCEN recommended by epam
+	writeReg(EPMM0, 0x303f);
+	writeReg(EPMCS, 0xf7f9);
+	writeRegByte(MACON1, MACON1_MARXEN|MACON1_TXPAUS|MACON1_RXPAUS);
+	writeRegByte(MACON2, 0x00);
+	enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, MACON3,
+										MACON3_PADCFG0|MACON3_TXCRCEN|MACON3_FRMLNEN);
+	writeReg(MAIPG, 0x0C12);
+	writeRegByte(MABBIPG, 0x12);
+	writeReg(MAMXFL, MAX_FRAMELEN);  
+	writeRegByte(MAADR5, macaddr[0]);
+	writeRegByte(MAADR4, macaddr[1]);
+	writeRegByte(MAADR3, macaddr[2]);
+	writeRegByte(MAADR2, macaddr[3]);
+	writeRegByte(MAADR1, macaddr[4]);
+	writeRegByte(MAADR0, macaddr[5]);
+	writePhy(PHCON2, PHCON2_HDLDIS);
+	enc28j60SetBank(ECON1);
+	enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, EIE, EIE_INTIE|EIE_PKTIE);
+	enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_RXEN);
+
+	rev = readRegByte(EREVID);
+	// microchip forgot to step the number on the silcon when they
+	// released the revision B7. 6 is now rev B7. We still have
+	// to see what they do when they release B8. At the moment
+	// there is no B8 out yet
+	if (rev > 5) ++rev;
+
+	link = isLinkUp();
 	
   enc28j60SoftwareReset();
   
