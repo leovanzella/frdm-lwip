@@ -18,6 +18,9 @@
 // - Register address        (bits 0-4)
 // - Bank number        (bits 5-6)
 // - MAC/PHY indicator        (bit 7)
+
+#include "spi.h"
+
 #define ADDR_MASK        0x1F
 #define BANK_MASK        0x60
 #define SPRD_MASK        0x80

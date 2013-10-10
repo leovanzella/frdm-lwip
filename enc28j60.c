@@ -8,22 +8,22 @@ uint8_t macaddr[] = {0x00, 0xFF, 0x7A, 0xA5, 0x06, 0xDD}; // fake mac, please ch
 void wait(char mseconds)
 {
 	int i;
-		for(i = 1000; i >=0; i--)
-		{
-			
-		}
+	for(i = mseconds*10000000; i >=0; i--)
+	{
+
+	}
 }
 
-static void enableChip(void) 
+void enableChip(void) 
 {
     //cs = 0;
-		FPTB->PCOR   = 0;
+		FPTD->PCOR = 1;
 }
 
-static void disableChip(void) 
+void disableChip(void) 
 {
     //cs = 1;
-		FPTB->PSOR   = 0;
+		FPTD->PSOR = 1;
 }
 
 static uint8_t readOp(uint8_t op, uint8_t address) 
@@ -35,10 +35,10 @@ static uint8_t readOp(uint8_t op, uint8_t address)
 //    spi.write(op | (address & ADDR_MASK));
 		spi_send(op | (address & ADDR_MASK));
 //    result = spi.write(0x00);
-		spi_send(0x00);
+		result = spi_send(0x00);
     if (address & 0x80)
 //        result = spi.write(0x00);
-					spi_send(0x00);
+					result = spi_send(0x00);
     
     disableChip();
     
@@ -227,9 +227,10 @@ void powerUp()
     writeOp(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_RXEN);
 }
 
-static int initialize(void) 
+int initialize(void) 
 {    
     uint8_t rev;
+		uint8_t link;
     writeOp(ENC28J60_SOFT_RESET, 0, ENC28J60_SOFT_RESET);
     wait(2);
     
@@ -269,5 +270,7 @@ static int initialize(void)
     // there is no B8 out yet
     if (rev > 5) ++rev;
     return rev;
+		
+		link = isLinkUp();
 }
 
