@@ -1,4 +1,4 @@
 #include <MKL25Z4.H>
 
-extern void spi_init();
-extern char spi_send(char spiMsg);
+void spi_init();
+uint8_t spi_send(char spiMsg);
