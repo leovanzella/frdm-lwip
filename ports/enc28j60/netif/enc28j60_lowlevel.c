@@ -33,18 +33,8 @@
 #include "enc28j60_lowlevel.h"
 #include "enc28j60def.h"
 
-//#include <avr/io.h>
-//#include <avr/interrupt.h>
-
-//#ifdef ENC28J60_ERRATA_B7
-//#include <util/delay.h>
-//#endif //ENC28J60_ERRATA_B7
-
-#define cbi(p, q) ((p) &= ~_BV(q))
-#define sbi(p, q) ((p) |= _BV(q))
-#define nop() asm volatile("nop\n\t"::);
-
-
+#include "enc28j60.h"
+#include "spi.h"
 
 u8_t Enc28j60Bank;
 u16_t NextPacketPtr;
@@ -52,81 +42,57 @@ u16_t NextPacketPtr;
 u8_t enc28j60ReadOp(u8_t op, u8_t address)
 {
 	u8_t data;
-   
-	// assert CS
-//	ENC28J60_CONTROL_PORT &= ~(1<<ENC28J60_SS_PIN);
-//	
-//	// issue read command
-//	SPDR = op | (address & ADDR_MASK);
-//	while(!(SPSR & (1<<SPIF)));
-//	// read data
-//	SPDR = 0x00;
-//	while(!(SPSR & (1<<SPIF)));
-//	// do dummy read if needed
-//	if(address & 0x80)
-//	{
-//		SPDR = 0x00;
-//		while(!(SPSR & (1<<SPIF)));
-//	}
-//	data = SPDR;
-//	
-//	// release CS
-//	ENC28J60_CONTROL_PORT |= (1<<ENC28J60_SS_PIN);
-
+	
+		enableChip();
+    
+		spi_send(op | (address & ADDR_MASK));
+		data = spi_send(0x00);
+    if (address & 0x80)
+					data = spi_send(0x00);
+    
+    disableChip();
+    
 	return data;
 }
 
 void enc28j60WriteOp(u8_t op, u8_t address, u8_t data)
 {
-//	// assert CS
-//	ENC28J60_CONTROL_PORT &= ~(1<<ENC28J60_SS_PIN);
-
-//	// issue write command
-//	SPDR = op | (address & ADDR_MASK);
-//	while(!(SPSR & (1<<SPIF)));
-//	// write data
-//	SPDR = data;
-//	while(!(SPSR & (1<<SPIF)));
-
-//	// release CS
-//	ENC28J60_CONTROL_PORT |= (1<<ENC28J60_SS_PIN);
+		enableChip();
+    
+		spi_send(op | (address & ADDR_MASK));
+		spi_send(data);
+    
+    disableChip();	
 }
 
 void enc28j60ReadBuffer(u16_t len, u8_t* data)
 {
-//	// assert CS
-//	ENC28J60_CONTROL_PORT &= ~(1<<ENC28J60_SS_PIN);
-//	
-//	// issue read command
-//	SPDR = ENC28J60_READ_BUF_MEM;
-//	while(!(SPSR & (1<<SPIF)));
-//	while(len--)
-//	{
-//		// read data
-//		SPDR = 0x00;
-//		while(!(SPSR & (1<<SPIF)));
-//		*data++ = SPDR;
-//	}	
-//	// release CS
-//	ENC28J60_CONTROL_PORT |= (1<<ENC28J60_SS_PIN);
+    // assert CS
+		enableChip();
+        
+    // issue read command
+		spi_send(ENC28J60_READ_BUF_MEM);
+		while(len--)
+		{
+			// read data
+			*data++ = spi_send(0x00);
+		}       
+		// release CS
+		disableChip();	
 }
 
 void enc28j60WriteBuffer(u16_t len, u8_t* data)
 {
-//	// assert CS
-//	ENC28J60_CONTROL_PORT &= ~(1<<ENC28J60_SS_PIN);
-//	
-//	// issue write command
-//	SPDR = ENC28J60_WRITE_BUF_MEM;
-//	while(!(SPSR & (1<<SPIF)));
-//	while(len--)
-//	{
-//		// write data
-//		SPDR = *data++;
-//		while(!(SPSR & (1<<SPIF)));
-//	}	
-//	// release CS
-//	ENC28J60_CONTROL_PORT |= (1<<ENC28J60_SS_PIN);
+        // assert CS
+		enableChip();
+
+        // issue write command
+		spi_send(ENC28J60_WRITE_BUF_MEM);
+		while (len--)
+			// write data
+			spi_send(*data++);
+		// release CS
+		disableChip();
 }
 
 void enc28j60SetBank(u8_t address)
@@ -229,40 +195,8 @@ void enc28j60SoftwareReset(void)
 void enc28j60Init(uint8_t *eth_addr,u8_t DuplexState)
 {
 	u8_t i,j;
-	// initialize I/O
-//	sbi(ENC28J60_CONTROL_DDR,  ENC28J60_SS_PIN);
-//	sbi(ENC28J60_CONTROL_PORT, ENC28J60_SS_PIN);
-//#ifdef ENC28J60_ENABLE_RESET
-//  sbi(ENC28J60_CONTROL_PORT, ENC28J60_RESET_PIN);
-//  sbi(ENC28J60_CONTROL_DDR,  ENC28J60_RESET_PIN);
-//#endif //ENC28J60_ENABLE_RESET
-//#ifdef ENC28J60_ENABLE_INT
-//  sbi(ENC28J60_CONTROL_PORT, ENC28J60_INT_PIN);
-//  cbi(ENC28J60_CONTROL_DDR,  ENC28J60_INT_PIN);
-//#endif //ENC28J60_ENABLE_INT  
-//  
-//	// setup SPI I/O pins
-//	sbi(PORTB, ENC28J60_SCK_PIN);	// set SCK hi
-//	sbi(ENC28J60_CONTROL_DDR, ENC28J60_SCK_PIN);	// set SCK as output
-//	cbi(ENC28J60_CONTROL_DDR, ENC28J60_MISO_PIN);	// set MISO as input
-//	sbi(ENC28J60_CONTROL_DDR, ENC28J60_MOSI_PIN);	// set MOSI as output
-//	sbi(ENC28J60_CONTROL_DDR, ENC28J60_SS_PIN);	  // SS must be output for Master mode to work
-//	// initialize SPI interface
-//	// master mode
-//	sbi(SPCR, MSTR);
-//	// select clock phase positive-going in middle of data
-//	cbi(SPCR, CPOL);
-//	// Data order MSB first
-//	cbi(SPCR,DORD);
-
-//	// switch to f/4 2X = f/2 bitrate
-//	cbi(SPCR, SPR0);
-//	cbi(SPCR, SPR1);
-//	sbi(SPSR, SPI2X);
-
-//	// enable SPI
-//	sbi(SPCR, SPE);
-
+	initialize();
+	
   enc28j60SoftwareReset();
   
 	// do bank 0 stuff

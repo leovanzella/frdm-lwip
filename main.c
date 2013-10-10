@@ -201,21 +201,22 @@ static void http_init(void)
   MAIN function
  *----------------------------------------------------------------------------*/
 int main (void) {
-  int num     = -1; 
-  int dir     =  1;
-	
-  SystemCoreClockUpdate();                      /* Get Core Clock Frequency */
-  SysTick_Config(SystemCoreClock/1000);         /* Generate interrupt each 1 ms    */
+	int num     = -1; 
+	int dir     =  1;
+
+	SystemCoreClockUpdate();                      /* Get Core Clock Frequency */
+	SysTick_Config(SystemCoreClock/1000);         /* Generate interrupt each 1 ms    */
 
 	spi_init();
+
 	lwip_init();
 	http_init();
 
 	TICKER_Start();  
 
-  while(1) 
+	while(1) 
 	{
 		enc28j60_if_input(netif_eth0);
-        tcp_tmr();
-  }
+		tcp_tmr();
+	}
 }
