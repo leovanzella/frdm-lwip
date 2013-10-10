@@ -40,7 +40,6 @@ u8_t Enc28j60Bank;
 u16_t NextPacketPtr;
 
 static int gNextPacketPtr;
-uint8_t macaddr[] = {0x00, 0xFF, 0x7A, 0xA5, 0x06, 0xDD}; // fake mac, please change it
 
 void wait(char mseconds)
 {
@@ -308,12 +307,6 @@ void enc28j60Init(uint8_t *eth_addr,u8_t DuplexState)
 	writeReg(MAIPG, 0x0C12);
 	writeRegByte(MABBIPG, 0x12);
 	writeReg(MAMXFL, MAX_FRAMELEN);  
-	writeRegByte(MAADR5, macaddr[0]);
-	writeRegByte(MAADR4, macaddr[1]);
-	writeRegByte(MAADR3, macaddr[2]);
-	writeRegByte(MAADR2, macaddr[3]);
-	writeRegByte(MAADR1, macaddr[4]);
-	writeRegByte(MAADR0, macaddr[5]);
 	writePhy(PHCON2, PHCON2_HDLDIS);
 	enc28j60SetBank(ECON1);
 	enc28j60WriteOp(ENC28J60_BIT_FIELD_SET, EIE, EIE_INTIE|EIE_PKTIE);
