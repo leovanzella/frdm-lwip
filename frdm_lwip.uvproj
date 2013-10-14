@@ -398,11 +398,6 @@
               <FilePath>.\ticker.c</FilePath>
             </File>
             <File>
-              <FileName>EMAC.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\EMAC.c</FilePath>
-            </File>
-            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\main.c</FilePath>
